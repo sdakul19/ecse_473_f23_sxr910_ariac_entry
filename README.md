@@ -4,6 +4,36 @@
 The ariac_entry package is a slightly edited version of the 2019 ARIAC competion. Aside from minor customizations, all components remain the same.
 This includes messages, services, order parts, etc. The documentation from the competition can be found [here](https://bitbucket.org/osrf/ariac/wiki/2019/documentation).
 
+### Launch
+The launch directory contains the launch file which launches the [ecse_373_ariac](https://github.com/cwru-eecs-373/ecse_373_ariac/tree/noetic-devel/ecse_373_ariac) launch file. <br>
+It also launches the ariac_entry node using the ariac_entry source code.
+
+### Msg
+The message directory contains two messages, Bin.msg and Bins.msg. 
+
+#### Bin.msg
+Bin.msg has three elements.
+```
+# Bin name
+string bin_name
+
+# Material type
+string material_type
+
+# Camera Image Information
+osrf_gear/LogicalCameraImage image
+```
+For bins 1 through bin 6, each bin will be identified by their bin number, material_type, and the image data. The current environment has bins 1-3 empty so their material_type is listed as any and there is no image data. Bin 4 has the piston_rod_part material and currently has 9 parts. The camera image data should contain the pose of each part. Bin 5 has the gasket_part and currently has 6 parts. Bin 6 has the gear_part and currently has 12 parts.
+
+#### Bins.msg
+The Bins.msg has only one element which is a vector of bins.
+```
+# Collection of bins
+Bin[] bins
+```
+The Bins.msg is for publishing to the topic /bins_contents. Currently the bin vector is only initialized once and needs to be modified to update everytime a part is taken out of the bins. To see the bin contents: > ```rostopic echo /bin_contents```
+### Src
+
 ## Setup Before Launching
 
 ### Install Simulation Environment
