@@ -1,8 +1,10 @@
 # How to use ariac_entry package
 
-## How the Package Works
-The ariac_entry package is a slightly edited version of the 2019 ARIAC competion. Aside from minor customizations, all components remain the same.
+## How the package works
+The ariac_entry package is a slightly edited version of the 2019 ARIAC competition. Aside from minor customizations, all components remain the same.
 This includes messages, services, order parts, etc. The documentation from the competition can be found [here](https://bitbucket.org/osrf/ariac/wiki/2019/documentation).
+
+Within the package is a launch directory, msg directory, src directory, as well as the CMakeList and package file.
 
 ### Launch
 The launch directory contains the launch file which launches the [ecse_373_ariac](https://github.com/cwru-eecs-373/ecse_373_ariac/tree/noetic-devel/ecse_373_ariac) launch file. <br>
@@ -31,11 +33,26 @@ The Bins.msg has only one element which is a vector of bins.
 # Collection of bins
 Bin[] bins
 ```
-The Bins.msg is for publishing to the topic /bins_contents. Currently the bin vector is only initialized once and needs to be modified to update everytime a part is taken out of the bins. To see the bin contents: > ```rostopic echo /bin_contents```
+The Bins.msg is for publishing to the topic /bins_contents. Currently the bin vector is only initialized once and needs to be modified to update everytime a part is taken out or added to the bins. To see the bin contents: `rostopic echo /bin_contents`
+
 ### Src
+For this lab certain criterias had to be achieved.
+1. Start the competition.
+2. Subcribe to Orders topic.
+3. Use material_location service to find the bin of the same time of the first part of the first shipment of the first order.
+4. Subscribe to all logical_cameras and store the information.
+5. Everytime an order is received, use ROS_WARN to print the x, y, and z pose of each part as well as the correct bin location identified by the material_location service.
+6. Provide the location of the part in the reference frame of the logical_camera and reference frame of the robot arm1_base_link
+
+#### Start Competition Function Call
+In the main function, of ariac_entry.cpp, `start_competition(node)` is run and calls the void function defined earlier in the code. The start_competition function takes in the node as an argument. The function defines a service client `ros::ServiceClient begin_client = node.serviceClient<std_srvs::Trigger>("/ariac/start_competition")` that is triggered by the `/ariac/start_competition` topic. The trigger is instantiated as `std_srvs::Trigger begin_comp`.
+When the service is called successfully, the competition will start. Otherwise an error message will print to the screen.
+
+#### Subscribe to Orders Topic
+#### Use material_location service to find the bin
+#### Subscrime to all logical cameras and store the information
 
 ## Setup Before Launching
-
 ### Install Simulation Environment
 In order to launch "entry.launch", the simulator environment must be first installed.<br>
 For the course of ECSE_473, the simulation environment was cloned from a class repository: [cwru_ariac_2019](https://github.com/cwru-eecs-373/cwru_ariac_2019).
