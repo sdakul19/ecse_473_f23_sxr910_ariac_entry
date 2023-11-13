@@ -49,6 +49,7 @@ In the main function, of ariac_entry.cpp, `start_competition(node)` is run and c
 When the service is called successfully, the competition will start. Otherwise an error message will print to the screen.
 
 #### Subscribe to Orders Topic
+
 #### Use material_location service to find the bin
 #### Subscrime to all logical cameras and store the information
 
