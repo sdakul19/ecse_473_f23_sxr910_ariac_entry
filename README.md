@@ -39,7 +39,7 @@ The Bins.msg is for publishing to the topic /bins_contents. Currently the bin ve
 For this lab certain criterias had to be achieved.
 1. Start the competition.
 2. Subcribe to Orders topic.
-3. Use material_location service to find the bin of the same time of the first part of the first shipment of the first order.
+3. Use material_location service to find the bin of the same type of the first part of the first shipment of the first order.
 4. Subscribe to all logical_cameras and store the information.
 5. Everytime an order is received, use ROS_WARN to print the x, y, and z pose of each part as well as the correct bin location identified by the material_location service.
 6. Provide the location of the part in the reference frame of the logical_camera and reference frame of the robot arm1_base_link
@@ -49,9 +49,13 @@ In the main function, of ariac_entry.cpp, `start_competition(node)` is run and c
 When the service is called successfully, the competition will start. Otherwise an error message will print to the screen.
 
 #### Subscribe to Orders Topic
+In the main function of ariac_entry.cpp, there is a subscriber subcribed to the `/ariac/Orders` topic and utilizes the `order_callback` function. The subscriber is instantiated as  `ros::Subscriber orders_sub = node.subscribe("/ariac/orders", 10, order_callback)`. The `order_callback` function takes in the `osrf_gear::Order` message and stores the order in a vector. The function also prints to the screen that the order was received and calls the `GetMaterialLocation` service to find the location of each product material type in the order. It also prints out the pose of each product.
 
-#### Use material_location service to find the bin
-#### Subscrime to all logical cameras and store the information
+#### Use material_location service to find the bin of the first part of the first shipment of the first order.
+In the main function of ariac_entry.cpp, there is a function call `get_bin_of_first(node)` in `while(ros::ok())`. This function uses the GetMaterialLocation service to find the bin matched to the material type of the first product of the first shipment of the first order. The service outputs two `storage_units`, one location pointing to the conveyor belt and the other location pointing to the bin. The function contains code that loops through the `storage_units` to output only the bin.
+
+#### Subscribe to all logical cameras and store the information
+In the main funciton of ariac_entry.cpp, there are 10 `logical_camera` subscriber calls. Two of them are subscribing to the `/ariac/logical_camera_agv1` and `/ariac/logical_camera_agv2` topics, six of them are subscribing to the `ariac/logical_camera_bin{n}` topic for bins one through 6, and the last two are subscribing to the `/ariac/quality_control_sensor_1` and `/ariac/quality_control_sensor_2` topics. The functionality of these logical cameras are explained in the 2019 ariac documentation. In each callback, the image data, bin/tray name, and material type are stored in vectors using the bin message type. Currently the data is only stored once and needs to be changed so that the stored data will be updated to each change. If the bin/tray is empty then the material type is named `empty/any` and a warning message is outputted.
 
 ## Setup Before Launching
 ### Install Simulation Environment
