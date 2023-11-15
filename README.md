@@ -38,11 +38,10 @@ The Bins.msg is for publishing to the topic /bins_contents. Currently the bin ve
 ### Src
 For this lab certain criterias had to be achieved.
 1. Start the competition.
-2. Subcribe to Orders topic.
+2. Subcribe to Orders topic. Everytime an order is received, use ROS_WARN to print the x, y, and z pose of each part as well as the correct bin location identified by the material_location service.
 3. Use material_location service to find the bin of the same type of the first part of the first shipment of the first order.
 4. Subscribe to all logical_cameras and store the information.
-5. Everytime an order is received, use ROS_WARN to print the x, y, and z pose of each part as well as the correct bin location identified by the material_location service.
-6. Provide the location of the part in the reference frame of the logical_camera and reference frame of the robot arm1_base_link
+5. Provide the location of the part in the reference frame of the logical_camera and reference frame of the robot arm1_base_link
 
 #### Start Competition Function Call
 In the main function, of ariac_entry.cpp, `start_competition(node)` is run and calls the void function defined earlier in the code. The start_competition function takes in the node as an argument. The function defines a service client `ros::ServiceClient begin_client = node.serviceClient<std_srvs::Trigger>("/ariac/start_competition")` that is triggered by the `/ariac/start_competition` topic. The trigger is instantiated as `std_srvs::Trigger begin_comp`.
@@ -55,7 +54,10 @@ In the main function of ariac_entry.cpp, there is a subscriber subcribed to the 
 In the main function of ariac_entry.cpp, there is a function call `get_bin_of_first(node)` in `while(ros::ok())`. This function uses the GetMaterialLocation service to find the bin matched to the material type of the first product of the first shipment of the first order. The service outputs two `storage_units`, one location pointing to the conveyor belt and the other location pointing to the bin. The function contains code that loops through the `storage_units` to output only the bin.
 
 #### Subscribe to all logical cameras and store the information
-In the main funciton of ariac_entry.cpp, there are 10 `logical_camera` subscriber calls. Two of them are subscribing to the `/ariac/logical_camera_agv1` and `/ariac/logical_camera_agv2` topics, six of them are subscribing to the `ariac/logical_camera_bin{n}` topic for bins one through 6, and the last two are subscribing to the `/ariac/quality_control_sensor_1` and `/ariac/quality_control_sensor_2` topics. The functionality of these logical cameras are explained in the 2019 ariac documentation. In each callback, the image data, bin/tray name, and material type are stored in vectors using the bin message type. Currently the data is only stored once and needs to be changed so that the stored data will be updated to each change. If the bin/tray is empty then the material type is named `empty/any` and a warning message is outputted.
+In the main function of ariac_entry.cpp, there are 10 `logical_camera` subscriber calls. Two of them are subscribing to the `/ariac/logical_camera_agv1` and `/ariac/logical_camera_agv2` topics, six of them are subscribing to the `ariac/logical_camera_bin{n}` topic for bins one through 6, and the last two are subscribing to the `/ariac/quality_control_sensor_1` and `/ariac/quality_control_sensor_2` topics. The functionality of these logical cameras are explained in the 2019 ariac documentation. In each callback, the image data, bin/tray name, and material type are stored in vectors using the bin message type. Currently the data is only stored once and needs to be changed so that the stored data will be updated to each change. If the bin/tray is empty then the material type is named `empty/any` and a warning message is outputted.
+
+#### Provide the location of the part in the reference frame of the logical_camera and reference frame of the robot arm1_base_link
+In the main function, `tf2_ros::Buffer` and `tf2_ros::TransformListener` and `tf2::doTransform(part_pose, goal_pose, tfStamped)` to get the locations of bin4 in reference to the arm1_base_link. In the next lab `ik_service` the robot will be programmed to move according to those coordinates.
 
 ## Setup Before Launching
 ### Install Simulation Environment
