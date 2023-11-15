@@ -310,17 +310,6 @@ int main(int argc, char **argv)
   ros::Publisher bin_of_first = node.advertise<std_msgs::String>("bin_of_first", 10);
   ros::Publisher bin_contents = node.advertise<ariac_entry::Bins>("bin_contents", 10);
   
-  tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener(tfBuffer);
-  geometry_msgs::TransformStamped tfStamped;
-  geometry_msgs::PoseStamped part_pose, goal_pose;
-  try {
-        tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0.0), ros::Duration(1.0));
-        ROS_WARN_STREAM_ONCE("tfStamped" << tfStamped);
-        ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(), tfStamped.child_frame_id.c_str());
-  } catch (tf2::TransformException &ex) {
-        ROS_ERROR("%s", ex.what());
-  }
 
   find_bin = node.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
@@ -340,7 +329,17 @@ int main(int argc, char **argv)
 
  
   start_competition(node);
-  
+  tf2_ros::Buffer tfBuffer;
+  tf2_ros::TransformListener tfListener(tfBuffer);
+  geometry_msgs::TransformStamped tfStamped;
+  geometry_msgs::PoseStamped part_pose, goal_pose;
+  try {
+        tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0.0), ros::Duration(1.0));
+        ROS_WARN_STREAM_ONCE("tfStamped" << tfStamped);
+        ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(), tfStamped.child_frame_id.c_str());
+  } catch (tf2::TransformException &ex) {
+        ROS_ERROR("%s", ex.what());
+  }
   ros::Rate loop_rate(10);
   int count = 0;
   
