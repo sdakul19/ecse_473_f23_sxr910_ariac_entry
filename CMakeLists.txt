@@ -13,6 +13,7 @@ find_package(catkin REQUIRED COMPONENTS
   rviz
   message_generation
   std_msgs
+  ik_service
 )
 
 ## System dependencies are found with CMake's conventions
@@ -109,8 +110,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES ariac_entry
 #  CATKIN_DEPENDS ecse_373_ariac roscpp rviz
-  CATKIN_DEPENDS  
-  message_runtime
+  CATKIN_DEPENDS message_runtime
 #  DEPENDS system_lib
 )
 

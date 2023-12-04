@@ -17,14 +17,20 @@
 #include "geometry_msgs/TransformStamped.h"
 #include "ariac_entry/Bins.h"
 #include "ariac_entry/Bin.h"
+#include "ik_service/PoseIK.h"
+#include "ur_kinematics/ur_kin.h"
 
 std::vector<osrf_gear::Order> order_vector;
 std::vector<ariac_entry::Bin> bin_vector;
 std::vector<ariac_entry::Bin> agv_vector;
 std::vector<ariac_entry::Bin> fault_vector;
-
-ariac_entry::Bins bin_contents_pub;
+ariac_entry::Bins bin_contents;
 ros::ServiceClient find_bin;
+ros::ServiceClient ik_client;
+ros::Publisher joint_trajectory_pub;
+sensor_msgs::JointState joint_states;
+tf2_ros::Buffer tfBuffer;
+geometry_msgs::Pose end_pose;
 
 bool sort_agv1 = false;
 bool sort_agv2 = false;
@@ -300,18 +306,78 @@ void log_cam_faulty2_callback(const osrf_gear::LogicalCameraImage::ConstPtr & ca
   }
 }
 
+void joint_states_callback(const sensor_msgs::JointState::ConstPtr & joint_msg) {
+  joint_states = *joint_msg;
+}
 
-int main(int argc, char **argv)
-{
-  bool found_bin = false;
-  ros::init(argc, argv, "ariac_entry_node");
-  ros::NodeHandle node;
-  ros::Subscriber orders_sub = node.subscribe("/ariac/orders", 10, order_callback);
-  ros::Publisher bin_of_first = node.advertise<std_msgs::String>("bin_of_first", 10);
-  ros::Publisher bin_contents = node.advertise<ariac_entry::Bins>("bin_contents", 10);
+
+void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
+  //ROS_WARN_STREAM_ONCE("" << end_pose);
+ 
+  trajectory_msgs::JointTrajectory joint_trajectory;
+  int num_sols;
+  int count;
+  double q_desired[8][6];
+
+  ik_service::PoseIK ik_srv;
+  ik_srv.request.part_pose = end_pose;
+  if(ik_client.call(ik_srv)) {
+    num_sols = ik_srv.response.num_sols;
+    joint_trajectory.header.seq = count++;
+    joint_trajectory.header.stamp = ros::Time::now();
+    joint_trajectory.header.frame_id = "/world";
+
+    joint_trajectory.joint_names.clear();
+    joint_trajectory.joint_names.push_back("linear_arm_actuator_joint");
+    joint_trajectory.joint_names.push_back("shoulder_pan_joint");
+    joint_trajectory.joint_names.push_back("shoulder_lift_joint");
+    joint_trajectory.joint_names.push_back("elbow_joint");
+    joint_trajectory.joint_names.push_back("wrist_1_joint");
+    joint_trajectory.joint_names.push_back("wrist_2_joint");
+    joint_trajectory.joint_names.push_back("wrist_3_joint");
+
+    joint_trajectory.points.resize(2);
+    joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+    for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+      for (int indz = 0; indz < joint_states.name.size(); indz++) {
+        if(joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
+          joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
+          break;
+        }
+      }
+    }
+    
+    joint_trajectory.points[0].time_from_start = ros::Duration(0.0);
+    int q_des_index = 0;
+    joint_trajectory.points[1].positions.resize(joint_trajectory.joint_names.size());
+    joint_trajectory.points[1].positions[0] = joint_states.position[1];
+
+    for(int i = 0; i < 8; i++) {
+      for(int j = 0; j < 6; j++) {
+        q_desired[i][j] = ik_srv.response.joint_solutions[i].joint_angles[j];
+      }
+    }
+    for (int indy = 0; indy < 6; indy++) {
+      joint_trajectory.points[1].positions[indy + 1] = q_desired[q_des_index][indy];
+    }
+
+    joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
+    joint_trajectory_pub.publish(joint_trajectory);
+    
+  } else {
+    ROS_WARN_ONCE("Client failed to start");
+  }
   
-  tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener(tfBuffer);
+}
+
+
+void get_transform(const std::vector<ariac_entry::Bin> & bin_vector) {
+  //ROS_WARN_STREAM(bin_vector);
+  // for(const ariac_entry::Bin &bin : bin_vector ) {
+  //   ROS_WARN_STREAM(bin);
+  // }
+  
+  
   geometry_msgs::TransformStamped tfStamped;
   geometry_msgs::PoseStamped part_pose, goal_pose;
   try {
@@ -321,6 +387,30 @@ int main(int argc, char **argv)
   } catch (tf2::TransformException &ex) {
         ROS_ERROR("%s", ex.what());
   }
+
+  part_pose.pose = bin_vector.at(3).image.models.at(1).pose;
+  goal_pose.pose = part_pose.pose;    
+  goal_pose.pose.position.z += 0.10;
+  goal_pose.pose.orientation.w = 0.707;
+  goal_pose.pose.orientation.x = 0.0;
+  goal_pose.pose.orientation.y = 0.707;
+  goal_pose.pose.orientation.w = 0.0;
+  end_pose = goal_pose.pose;
+  get_trajectory(joint_trajectory_pub);
+  tf2::doTransform(part_pose, goal_pose, tfStamped);
+
+}
+
+
+int main(int argc, char **argv)
+{
+  bool found_bin = false;
+  ros::init(argc, argv, "ariac_entry_node");
+  ros::NodeHandle node;
+  ros::Subscriber orders_sub = node.subscribe("/ariac/orders", 10, order_callback);
+  ros::Publisher bin_contents_pub = node.advertise<ariac_entry::Bins>("bin_contents", 10);
+  joint_trajectory_pub = node.advertise<trajectory_msgs::JointTrajectory>("/ariac/arm1/arm/command",10);
+  tf2_ros::TransformListener tfListener(tfBuffer);
 
   find_bin = node.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
@@ -337,36 +427,35 @@ int main(int argc, char **argv)
   
   ros::Subscriber log_cam_faulty1_sub = node.subscribe("/ariac/quality_control_sensor_1", 10, log_cam_faulty1_callback);
   ros::Subscriber log_cam_faulty2_sub = node.subscribe("/ariac/quality_control_sensor_2", 10, log_cam_faulty2_callback);
+  
+  ros::Subscriber joint_state_sub = node.subscribe("/ariac/arm1/joint_states", 10, joint_states_callback);
 
- 
+  ik_client = node.serviceClient<ik_service::PoseIK>("pose_ik");
+  ros::service::waitForService("pose_ik", 10);
+
   start_competition(node);
   
   ros::Rate loop_rate(10);
   int count = 0;
-  
+  ros::AsyncSpinner spinner(1);
+  spinner.start();
   while(ros::ok()) {
-
+    //ROS_INFO_STREAM_THROTTLE(10, joint_states);
     if (order_vector.size() == 1 && !found_bin){
        get_bin_of_first(node);
        found_bin = true;
     } else {
       ROS_WARN_ONCE("No orders received yet...");
     }
-    if(bin_vector.size() == 6) {
-      part_pose.pose = bin_vector.at(3).image.models.at(1).pose;
-      goal_pose.pose = part_pose.pose;
-      goal_pose.pose.position.z += 0.10;
-      goal_pose.pose.orientation.w = 0.707;
-      goal_pose.pose.orientation.x = 0.0;
-      goal_pose.pose.orientation.y = 0.707;
-      goal_pose.pose.orientation.w = 0.0;
-      tf2::doTransform(part_pose, goal_pose, tfStamped);
+    if((bin_vector.size() == 6)) {
+      get_transform(bin_vector);
+
     } else {
       ROS_WARN("No data");
     }
-    bin_contents_pub.bins = bin_vector;
-    bin_contents.publish(bin_contents_pub);
-    ros::spinOnce();
+    bin_contents.bins = bin_vector;
+    bin_contents_pub.publish(bin_contents);
+   
     loop_rate.sleep();
     ++count;
   }
