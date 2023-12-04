@@ -19,6 +19,9 @@
 #include "ariac_entry/Bin.h"
 #include "ik_service/PoseIK.h"
 #include "ur_kinematics/ur_kin.h"
+#include "actionlib/client/simple_action_client.h"
+#include "actionlib/client/terminal_state.h"
+#include "control_msgs/FollowJointTrajectoryAction.h"
 
 std::vector<osrf_gear::Order> order_vector;
 std::vector<ariac_entry::Bin> bin_vector;
@@ -31,6 +34,9 @@ ros::Publisher joint_trajectory_pub;
 sensor_msgs::JointState joint_states;
 tf2_ros::Buffer tfBuffer;
 geometry_msgs::Pose end_pose;
+geometry_msgs::TransformStamped tfStamped;
+geometry_msgs::PoseStamped part_pose, goal_pose;
+//actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_ac("ariac/arm/follow_joint_trajectory", true);
 
 bool sort_agv1 = false;
 bool sort_agv2 = false;
@@ -306,21 +312,42 @@ void log_cam_faulty2_callback(const osrf_gear::LogicalCameraImage::ConstPtr & ca
   }
 }
 
+void goalActiveCallback(){
+  ROS_INFO("Goal active");
+}
+
+void feedbackCallback(const control_msgs::FollowJointTrajectoryFeedback::ConstPtr & fb) {
+  ROS_INFO_STREAM(fb);
+}
+
+void resultCallback(const control_msgs::FollowJointTrajectoryResult::ConstPtr & res) {
+  ROS_INFO_STREAM(res);
+}
+
 void joint_states_callback(const sensor_msgs::JointState::ConstPtr & joint_msg) {
   joint_states = *joint_msg;
 }
 
+void move_arm(trajectory_msgs::JointTrajectory & joint_trajectory) {
+  control_msgs::FollowJointTrajectoryAction joint_trajectory_as;
+  control_msgs::FollowJointTrajectoryGoal goal;
+  joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
+  //ROS_WARN_STREAM_ONCE("MOVE_ARM" << joint_trajectory);
+  goal = joint_trajectory_as.action_goal.goal;
+  //trajectory_ac.sendGoal(goal, &resultCallback, &goalActiveCallback, &feedbackCallback);
+}
 
 void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
   //ROS_WARN_STREAM_ONCE("" << end_pose);
- 
+  
   trajectory_msgs::JointTrajectory joint_trajectory;
   int num_sols;
   int count;
   double q_desired[8][6];
 
   ik_service::PoseIK ik_srv;
-  ik_srv.request.part_pose = end_pose;
+  ik_srv.request.part_pose = goal_pose.pose;
+  ROS_WARN_STREAM_ONCE(goal_pose.pose);
   if(ik_client.call(ik_srv)) {
     num_sols = ik_srv.response.num_sols;
     joint_trajectory.header.seq = count++;
@@ -338,6 +365,7 @@ void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
 
     joint_trajectory.points.resize(2);
     joint_trajectory.points[0].positions.resize(joint_trajectory.joint_names.size());
+    
     for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
       for (int indz = 0; indz < joint_states.name.size(); indz++) {
         if(joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
@@ -357,18 +385,41 @@ void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
         q_desired[i][j] = ik_srv.response.joint_solutions[i].joint_angles[j];
       }
     }
+    /*
     for (int indy = 0; indy < 6; indy++) {
       joint_trajectory.points[1].positions[indy + 1] = q_desired[q_des_index][indy];
     }
-
-    joint_trajectory.points[1].time_from_start = ros::Duration(1.0);
-    joint_trajectory_pub.publish(joint_trajectory);
+    */
+    //joint_trajectory.points[1].positions[0] = goal_pose.pose.position.y;
+    joint_trajectory.points[1].positions[0] = 3.0;
+    joint_trajectory.points[1].positions[1] = 2.0;
+    joint_trajectory.points[1].positions[2] = 2.0;
+    joint_trajectory.points[1].positions[3] = 2.0;
+    joint_trajectory.points[1].positions[4] = 2.0;
+    joint_trajectory.points[1].positions[5] = 2.0;
+    joint_trajectory.points[1].positions[6] = 2.0;
+    // for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
+    //   for (int indz = 0; indz < joint_states.name.size(); indz++) {
+    //     if(joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
+    //       joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
+    //       break;
+    //     }
+    //   }
+    // }
     
+    joint_trajectory.points[1].time_from_start = ros::Duration(3.0);
+    ROS_WARN_ONCE("PUBLISHING JOINT");
+    joint_trajectory_pub.publish(joint_trajectory);
+    ros::Duration(3.0).sleep();
+    ROS_WARN_ONCE("FINISHED PUBLISHING JOINT");
+    move_arm(joint_trajectory);
+
   } else {
     ROS_WARN_ONCE("Client failed to start");
   }
   
 }
+
 
 
 void get_transform(const std::vector<ariac_entry::Bin> & bin_vector) {
@@ -378,8 +429,7 @@ void get_transform(const std::vector<ariac_entry::Bin> & bin_vector) {
   // }
   
   
-  geometry_msgs::TransformStamped tfStamped;
-  geometry_msgs::PoseStamped part_pose, goal_pose;
+ 
   try {
         tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0.0), ros::Duration(1.0));
         ROS_WARN_STREAM_ONCE("tfStamped" << tfStamped);
@@ -388,18 +438,19 @@ void get_transform(const std::vector<ariac_entry::Bin> & bin_vector) {
         ROS_ERROR("%s", ex.what());
   }
 
-  part_pose.pose = bin_vector.at(3).image.models.at(1).pose;
-  goal_pose.pose = part_pose.pose;    
+  part_pose.pose = bin_vector.at(3).image.models.at(1).pose;   
   goal_pose.pose.position.z += 0.10;
+  //goal_pose.pose.position.y += 100.0;
   goal_pose.pose.orientation.w = 0.707;
   goal_pose.pose.orientation.x = 0.0;
   goal_pose.pose.orientation.y = 0.707;
-  goal_pose.pose.orientation.w = 0.0;
-  end_pose = goal_pose.pose;
-  get_trajectory(joint_trajectory_pub);
+  goal_pose.pose.orientation.z = 0.0;
   tf2::doTransform(part_pose, goal_pose, tfStamped);
+  get_trajectory(joint_trajectory_pub);
+ 
 
 }
+
 
 
 int main(int argc, char **argv)
@@ -430,6 +481,7 @@ int main(int argc, char **argv)
   
   ros::Subscriber joint_state_sub = node.subscribe("/ariac/arm1/joint_states", 10, joint_states_callback);
 
+  //actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_ac("ariac/arm/follow_joint_trajectory", true);
   ik_client = node.serviceClient<ik_service::PoseIK>("pose_ik");
   ros::service::waitForService("pose_ik", 10);
 
