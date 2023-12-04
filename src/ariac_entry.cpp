@@ -434,7 +434,6 @@ int main(int argc, char **argv)
   ros::service::waitForService("pose_ik", 10);
 
   start_competition(node);
-  
   ros::Rate loop_rate(10);
   int count = 0;
   ros::AsyncSpinner spinner(1);
