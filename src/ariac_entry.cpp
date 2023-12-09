@@ -24,18 +24,17 @@
 #include "control_msgs/FollowJointTrajectoryAction.h"
 
 std::vector<osrf_gear::Order> order_vector;
-std::vector<ariac_entry::Bin> bin_vector;
-std::vector<ariac_entry::Bin> agv_vector;
-std::vector<ariac_entry::Bin> fault_vector;
+std::vector<ariac_entry::Bin> bin_vector(6);
+std::vector<ariac_entry::Bin> agv_vector(2);
+std::vector<ariac_entry::Bin> fault_vector(2);
 ariac_entry::Bins bin_contents;
 ros::ServiceClient find_bin;
 ros::ServiceClient ik_client;
 ros::Publisher joint_trajectory_pub;
 sensor_msgs::JointState joint_states;
 tf2_ros::Buffer tfBuffer;
-geometry_msgs::Pose end_pose;
-geometry_msgs::TransformStamped tfStamped;
-geometry_msgs::PoseStamped part_pose, goal_pose;
+
+
 //actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_ac("ariac/arm/follow_joint_trajectory", true);
 
 bool sort_agv1 = false;
@@ -119,12 +118,12 @@ void log_cam_agv1_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()){
       agv1.bin_name = "AGV 1";
       agv1.material_type = "any";
-      agv_vector.push_back(agv1);
+      agv_vector[0] = agv1;
       sort_agv1 = true;
     } else {
       agv1.bin_name = "AGV 1";
       agv1.material_type = "any";
-      agv_vector.push_back(agv1);
+      agv_vector[0] = agv1;
       sort_agv1 = true;
       ROS_WARN_ONCE("Nothing in agv1");
     }
@@ -140,12 +139,12 @@ void log_cam_agv2_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()){
       agv2.bin_name = "AGV 2";
       agv2.material_type = "any";
-      agv_vector.push_back(agv2);
+      agv_vector[1] = agv2;
       sort_agv2 = true;
     } else {
       agv2.bin_name = "AGV 2";
       agv2.material_type = "any";
-      agv_vector.push_back(agv2);
+      agv_vector[1] = agv2;
       sort_agv2 = true;
       ROS_WARN_ONCE("Nothing in agv2");
     }
@@ -160,12 +159,12 @@ void log_cam_bin1_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin1.bin_name = "Bin 1";
         bin1.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin1);
+        bin_vector[0] = bin1;
         sort_bin1 = true;
     } else {
         bin1.bin_name = "Bin 1";
         bin1.material_type = "Empty";
-        bin_vector.push_back(bin1);
+        bin_vector[0] = bin1;
         sort_bin1 = true;
         ROS_WARN_ONCE("Nothing in bin 1");
     }
@@ -180,12 +179,12 @@ void log_cam_bin2_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin2.bin_name = "Bin 2";
         bin2.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin2);
+        bin_vector[1] = bin2;
         sort_bin2 = true;
     } else {
         bin2.bin_name = "Bin 2";
         bin2.material_type = "Empty";
-        bin_vector.push_back(bin2);
+        bin_vector[1] = bin2;
         sort_bin2 = true;
         ROS_WARN_ONCE("Nothing in bin 2");
     }
@@ -200,12 +199,12 @@ void log_cam_bin3_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin3.bin_name = "Bin 3";
         bin3.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin3);
+        bin_vector[2] = bin3;
         sort_bin3 = true;
     } else {
         bin3.bin_name = "Bin 3";
         bin3.material_type = "Empty";
-        bin_vector.push_back(bin3);
+        bin_vector[2] = bin3;
         sort_bin3 = true;
         ROS_WARN_ONCE("Nothing in bin 3");
     }
@@ -220,12 +219,12 @@ void log_cam_bin4_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin4.bin_name = "Bin 4";
         bin4.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin4);
+        bin_vector[3] = bin4;
         sort_bin4 = true;
     } else {
         bin4.bin_name = "Bin 4";
         bin4.material_type = "Empty";
-        bin_vector.push_back(bin4);
+        bin_vector[3] = bin4;
         sort_bin4 = true;
         ROS_WARN_ONCE("Nothing in bin 4");
     }
@@ -240,13 +239,13 @@ void log_cam_bin5_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin5.bin_name = "Bin 5";
         bin5.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin5);
+        bin_vector[4] = bin5;
         sort_bin5 = true;
       
     } else {
         bin5.bin_name = "Bin 5";
         bin5.material_type = "Empty";
-        bin_vector.push_back(bin5);
+        bin_vector[4] = bin5;
         ROS_WARN_ONCE("Nothing in bin 5");
     }
   }
@@ -260,12 +259,12 @@ void log_cam_bin6_callback(const osrf_gear::LogicalCameraImage::ConstPtr & cam_m
     if(!temp_msg.models.empty()) {
         bin6.bin_name = "Bin 6";
         bin6.material_type = temp_msg.models.front().type.c_str();
-        bin_vector.push_back(bin6);
+        bin_vector[5] = bin6;
         sort_bin6 = true;
     } else {
         bin6.bin_name = "Bin 6";
         bin6.material_type = "Empty";
-        bin_vector.push_back(bin6);
+        bin_vector[5] = bin6;
         ROS_WARN_ONCE("Nothing in bin 6");
         sort_bin6 = true;
     }
@@ -280,12 +279,12 @@ void log_cam_faulty1_callback(const osrf_gear::LogicalCameraImage::ConstPtr & ca
     if(!temp_msg.models.empty()){
       faulty1.bin_name = "Qaulity Control 1";
       faulty1.material_type = "any";
-      agv_vector.push_back(faulty1);
+      fault_vector[0] = faulty1;
       sort_faulty1 = true;
     } else {
       faulty1.bin_name = "Quality Control 1";
       faulty1.material_type = "any";
-      agv_vector.push_back(faulty1);
+      fault_vector[0] = faulty1;
       sort_faulty1 = true;
       ROS_WARN_ONCE("Nothing in Quality Control 1");
     }
@@ -300,12 +299,12 @@ void log_cam_faulty2_callback(const osrf_gear::LogicalCameraImage::ConstPtr & ca
     if(!temp_msg.models.empty()){
       faulty2.bin_name = "Qaulity Control 2";
       faulty2.material_type = "any";
-      agv_vector.push_back(faulty2);
+      fault_vector[1] = faulty2;
       sort_faulty2 = true;
     } else {
       faulty2.bin_name = "Quality Control 2";
       faulty2.material_type = "any";
-      agv_vector.push_back(faulty2);
+      fault_vector[1] = faulty2;
       sort_faulty2 = true;
       ROS_WARN_ONCE("Nothing in Quality Control 2");
     }
@@ -333,12 +332,12 @@ void move_arm(trajectory_msgs::JointTrajectory & joint_trajectory) {
   control_msgs::FollowJointTrajectoryGoal goal;
   joint_trajectory_as.action_goal.goal.trajectory = joint_trajectory;
   //ROS_WARN_STREAM_ONCE("MOVE_ARM" << joint_trajectory);
-  goal = joint_trajectory_as.action_goal.goal;
+  
   //trajectory_ac.sendGoal(goal, &resultCallback, &goalActiveCallback, &feedbackCallback);
 }
 
-void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
-  //ROS_WARN_STREAM_ONCE("" << end_pose);
+void get_trajectory(geometry_msgs::PoseStamped goal_pose) {
+
   
   trajectory_msgs::JointTrajectory joint_trajectory;
   int num_sols;
@@ -347,7 +346,6 @@ void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
 
   ik_service::PoseIK ik_srv;
   ik_srv.request.part_pose = goal_pose.pose;
-  ROS_WARN_STREAM_ONCE(goal_pose.pose);
   if(ik_client.call(ik_srv)) {
     num_sols = ik_srv.response.num_sols;
     joint_trajectory.header.seq = count++;
@@ -385,35 +383,25 @@ void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
         q_desired[i][j] = ik_srv.response.joint_solutions[i].joint_angles[j];
       }
     }
-    /*
+    
     for (int indy = 0; indy < 6; indy++) {
       joint_trajectory.points[1].positions[indy + 1] = q_desired[q_des_index][indy];
     }
-    */
-    //joint_trajectory.points[1].positions[0] = goal_pose.pose.position.y;
-    joint_trajectory.points[1].positions[0] = 3.0;
-    joint_trajectory.points[1].positions[1] = 2.0;
-    joint_trajectory.points[1].positions[2] = 2.0;
-    joint_trajectory.points[1].positions[3] = 2.0;
-    joint_trajectory.points[1].positions[4] = 2.0;
-    joint_trajectory.points[1].positions[5] = 2.0;
-    joint_trajectory.points[1].positions[6] = 2.0;
-    // for (int indy = 0; indy < joint_trajectory.joint_names.size(); indy++) {
-    //   for (int indz = 0; indz < joint_states.name.size(); indz++) {
-    //     if(joint_trajectory.joint_names[indy] == joint_states.name[indz]) {
-    //       joint_trajectory.points[0].positions[indy] = joint_states.position[indz];
-    //       break;
-    //     }
-    //   }
-    // }
     
-    joint_trajectory.points[1].time_from_start = ros::Duration(3.0);
-    ROS_WARN_ONCE("PUBLISHING JOINT");
-    joint_trajectory_pub.publish(joint_trajectory);
-    ros::Duration(3.0).sleep();
-    ROS_WARN_ONCE("FINISHED PUBLISHING JOINT");
-    move_arm(joint_trajectory);
+    joint_trajectory.points[1].positions[0] = goal_pose.pose.position.y - 0.5;
+    
+   
+    
 
+    joint_trajectory.points[1].time_from_start = ros::Duration(3.0);
+    ROS_WARN("PUBLISHING...");
+    ROS_WARN_STREAM_ONCE(joint_trajectory);
+    joint_trajectory_pub.publish(joint_trajectory);
+    
+    ROS_WARN("FINISH PUBLISHING");
+    ros::Duration(3.0).sleep();
+    
+  
   } else {
     ROS_WARN_ONCE("Client failed to start");
   }
@@ -422,33 +410,32 @@ void get_trajectory(ros::Publisher & joint_trajectory_publisher) {
 
 
 
-void get_transform(const std::vector<ariac_entry::Bin> & bin_vector) {
-  //ROS_WARN_STREAM(bin_vector);
-  // for(const ariac_entry::Bin &bin : bin_vector ) {
-  //   ROS_WARN_STREAM(bin);
-  // }
-  
-  
- 
+void get_transform(std::vector<ariac_entry::Bin> & bin_vector_input) {
+
+ geometry_msgs::TransformStamped tfStamped;
+ geometry_msgs::PoseStamped part_pose, goal_pose;
+
   try {
         tfStamped = tfBuffer.lookupTransform("arm1_base_link", "logical_camera_bin4_frame", ros::Time(0.0), ros::Duration(1.0));
-        ROS_WARN_STREAM_ONCE("tfStamped" << tfStamped);
         ROS_DEBUG("Transform to [%s] from [%s]", tfStamped.header.frame_id.c_str(), tfStamped.child_frame_id.c_str());
   } catch (tf2::TransformException &ex) {
         ROS_ERROR("%s", ex.what());
+        
   }
+  
+  part_pose.pose = bin_vector_input.at(3).image.models.at(1).pose;   
+  
+  tf2::doTransform(part_pose, goal_pose, tfStamped);
 
-  part_pose.pose = bin_vector.at(3).image.models.at(1).pose;   
   goal_pose.pose.position.z += 0.10;
-  //goal_pose.pose.position.y += 100.0;
   goal_pose.pose.orientation.w = 0.707;
   goal_pose.pose.orientation.x = 0.0;
   goal_pose.pose.orientation.y = 0.707;
   goal_pose.pose.orientation.z = 0.0;
-  tf2::doTransform(part_pose, goal_pose, tfStamped);
-  get_trajectory(joint_trajectory_pub);
- 
+  
+  get_trajectory(goal_pose);
 
+  
 }
 
 
@@ -457,11 +444,12 @@ int main(int argc, char **argv)
 {
   bool found_bin = false;
   ros::init(argc, argv, "ariac_entry_node");
+  tf2_ros::TransformListener tfListener(tfBuffer);
   ros::NodeHandle node;
   ros::Subscriber orders_sub = node.subscribe("/ariac/orders", 10, order_callback);
   ros::Publisher bin_contents_pub = node.advertise<ariac_entry::Bins>("bin_contents", 10);
   joint_trajectory_pub = node.advertise<trajectory_msgs::JointTrajectory>("/ariac/arm1/arm/command",10);
-  tf2_ros::TransformListener tfListener(tfBuffer);
+  
 
   find_bin = node.serviceClient<osrf_gear::GetMaterialLocations>("/ariac/material_locations");
 
@@ -483,27 +471,34 @@ int main(int argc, char **argv)
 
   //actionlib::SimpleActionClient<control_msgs::FollowJointTrajectoryAction> trajectory_ac("ariac/arm/follow_joint_trajectory", true);
   ik_client = node.serviceClient<ik_service::PoseIK>("pose_ik");
-  ros::service::waitForService("pose_ik", 10);
+  
 
   start_competition(node);
+  ros::service::waitForService("/ariac/material_locations", 10);
+  ros::service::waitForService("pose_ik", 10);
+
   ros::Rate loop_rate(10);
   int count = 0;
   ros::AsyncSpinner spinner(1);
   spinner.start();
+
   while(ros::ok()) {
-    //ROS_INFO_STREAM_THROTTLE(10, joint_states);
+    
+    ROS_INFO_STREAM_THROTTLE(10, joint_states);
     if (order_vector.size() == 1 && !found_bin){
-       get_bin_of_first(node);
-       found_bin = true;
+      get_bin_of_first(node);
+      found_bin = true;
+      if((!bin_vector.empty())) {
+        ROS_WARN_ONCE("GETTING TRANSFORM");
+        get_transform(bin_vector);
+        
+      } else {
+        ROS_WARN("No data");
+      }
     } else {
       ROS_WARN_ONCE("No orders received yet...");
     }
-    if((bin_vector.size() == 6)) {
-      get_transform(bin_vector);
-
-    } else {
-      ROS_WARN("No data");
-    }
+    
     bin_contents.bins = bin_vector;
     bin_contents_pub.publish(bin_contents);
    
